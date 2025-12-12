@@ -23,19 +23,29 @@ use crate::{AuthGenerator, OacisResponse, VacDatabase, VacEntry};
 use anyhow::{Context, Result};
 use reqwest::blocking::Client;
 use sha2::{Digest, Sha256};
+use std::cell::RefCell;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 const API_BASE_URL: &str = "https://bo-prod-sofia-vac.sia-france.fr";
 const OACIS_ENDPOINT: &str = "/api/v1/oacis";
 const FILE_ENDPOINT: &str = "/api/v1/custom/file-path";
+const CACHE_TTL_SECONDS: u64 = 600; // 10 minutes
+
+/// Cached OACIS data with timestamp
+struct CachedOacisData {
+    entries: Vec<VacEntry>,
+    fetched_at: Instant,
+}
 
 /// Main VAC downloader with caching and version management
 pub struct VacDownloader {
     client: Client,
     database: VacDatabase,
     download_dir: PathBuf,
+    oacis_cache: RefCell<Option<CachedOacisData>>,
 }
 
 impl VacDownloader {
@@ -59,6 +69,7 @@ impl VacDownloader {
             client,
             database,
             download_dir,
+            oacis_cache: RefCell::new(None),
         })
     }
 
@@ -82,8 +93,31 @@ impl VacDownloader {
         Ok(format!("{:x}", hasher.finalize()))
     }
 
-    /// Fetch all OACIS entries from the API (with pagination)
+    /// Fetch all OACIS entries from the API (with pagination and caching)
     fn fetch_oacis_data(&self) -> Result<Vec<VacEntry>> {
+        // Check if we have valid cached data
+        {
+            let cache = self.oacis_cache.borrow();
+            if let Some(cached) = cache.as_ref() {
+                let age = cached.fetched_at.elapsed();
+                if age < Duration::from_secs(CACHE_TTL_SECONDS) {
+                    let remaining = Duration::from_secs(CACHE_TTL_SECONDS) - age;
+                    println!(
+                        "📦 Using cached OACIS data ({} entries, cache expires in {}s)",
+                        cached.entries.len(),
+                        remaining.as_secs()
+                    );
+                    return Ok(cached.entries.clone());
+                } else {
+                    println!(
+                        "⏰ Cache expired (age: {}s), fetching fresh data",
+                        age.as_secs()
+                    );
+                }
+            }
+        }
+
+        // Cache miss or expired, fetch fresh data
         let mut all_entries = Vec::new();
         let mut page = 1;
 
@@ -127,6 +161,14 @@ impl VacDownloader {
         }
 
         println!("Total AD entries fetched: {}", all_entries.len());
+
+        // Update cache
+        *self.oacis_cache.borrow_mut() = Some(CachedOacisData {
+            entries: all_entries.clone(),
+            fetched_at: Instant::now(),
+        });
+        println!("💾 Cached OACIS data (TTL: {}s)", CACHE_TTL_SECONDS);
+
         Ok(all_entries)
     }
 
