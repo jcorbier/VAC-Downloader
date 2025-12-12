@@ -77,12 +77,33 @@ fn main() -> anyhow::Result<()> {
 # Build
 cargo build --release
 
-# Run
+# Run with default settings (db: vac_cache.db, downloads: ./downloads)
 cargo run --release
 
+# Specify custom database path
+cargo run --release -- --db-path /path/to/custom.db
+
+# Specify custom download directory
+cargo run --release -- --download-dir /path/to/downloads
+
+# Specify both
+cargo run --release -- -d /path/to/custom.db -o /path/to/downloads
+
+# View help
+cargo run --release -- --help
+
 # Or use the binary directly
-./target/release/vac_downloader
+./target/release/vac_downloader --db-path custom.db --download-dir ./pdfs
 ```
+
+#### Command-Line Options
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--db-path` | `-d` | `vac_cache.db` | Path to the SQLite database file |
+| `--download-dir` | `-o` | `./downloads` | Directory where PDFs will be downloaded |
+| `--help` | `-h` | - | Print help information |
+| `--version` | `-V` | - | Print version information |
 
 ## Example Output
 
@@ -122,6 +143,7 @@ Total AD entries fetched: 312
 - `base64` - Base64 encoding
 - `anyhow` - Error handling
 - `tokio` - Async runtime (for reqwest)
+- `clap` - Command-line argument parsing
 
 ## API Endpoints
 

@@ -20,17 +20,29 @@
  */
 
 use anyhow::Result;
+use clap::Parser;
 use vac_downloader::VacDownloader;
 
+/// VAC Downloader - Airport (AD) PDF Sync Tool
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Path to the SQLite database file
+    #[arg(short, long, default_value = "vac_cache.db")]
+    db_path: String,
+
+    /// Directory where PDFs will be downloaded
+    #[arg(short = 'o', long, default_value = "./downloads")]
+    download_dir: String,
+}
+
 fn main() -> Result<()> {
+    let args = Args::parse();
+
     println!("🛩️  VAC Downloader - Airport (AD) PDF Sync Tool\n");
 
-    // Configuration
-    let db_path = "vac_cache.db";
-    let download_dir = "./downloads";
-
     // Create downloader
-    let downloader = VacDownloader::new(db_path, download_dir)?;
+    let downloader = VacDownloader::new(&args.db_path, &args.download_dir)?;
 
     // Run sync
     let stats = downloader.sync()?;
