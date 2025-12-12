@@ -12,7 +12,7 @@ authors = ["Jeremie Corbier <jeremie.corbier@gmail.com>"]
 path = "src/lib/lib.rs"
 
 [[bin]]
-name = "vac_downloader"
+name = "vac-downloader"
 path = "src/cli/main.rs"
 
 [dependencies]
