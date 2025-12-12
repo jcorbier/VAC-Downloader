@@ -37,6 +37,10 @@ struct Args {
     /// Directory where PDFs will be downloaded
     #[arg(short = 'o', long)]
     download_dir: Option<String>,
+
+    /// OACI codes to download (if not specified, all entries will be synced)
+    #[arg(short = 'c', long = "oaci", value_name = "CODE", value_delimiter = ',')]
+    oaci_codes: Vec<String>,
 }
 
 fn main() -> Result<()> {
@@ -67,13 +71,23 @@ fn main() -> Result<()> {
         );
     }
     println!("📂 Database: {}", db_path);
-    println!("📥 Download directory: {}\n", download_dir);
+    println!("📥 Download directory: {}", download_dir);
+
+    if !args.oaci_codes.is_empty() {
+        println!("🎯 OACI filter: {}", args.oaci_codes.join(", "));
+    }
+    println!();
 
     // Create downloader
     let downloader = VacDownloader::new(&db_path, &download_dir)?;
 
-    // Run sync
-    let stats = downloader.sync()?;
+    // Run sync with optional OACI filter
+    let oaci_filter = if args.oaci_codes.is_empty() {
+        None
+    } else {
+        Some(args.oaci_codes.as_slice())
+    };
+    let stats = downloader.sync(oaci_filter)?;
 
     // Exit with error code if any downloads failed
     if stats.failed > 0 {

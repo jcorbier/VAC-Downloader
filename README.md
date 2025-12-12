@@ -6,6 +6,7 @@ A Rust module that fetches French VAC (Visual Approach Charts) data from the SOF
 
 - ✅ **API Integration**: Fetches VAC data from SOFIA API
 - ✅ **AD Filtering**: Only processes airport (AD) type entries
+- ✅ **Partial Downloads**: Filter by OACI codes to download specific airports
 - ✅ **Version Caching**: SQLite database tracks downloaded versions
 - ✅ **Smart Updates**: Downloads only when newer versions available
 - ✅ **Progress Reporting**: Detailed sync statistics
@@ -34,11 +35,17 @@ use vac_downloader::VacDownloader;
 
 fn main() -> anyhow::Result<()> {
     let downloader = VacDownloader::new("vac_cache.db", "./downloads")?;
-    let stats = downloader.sync()?;
-    
+
+    // Download all entries
+    let stats = downloader.sync(None)?;
+
+    // Or download specific OACI codes
+    let oaci_codes = vec!["LFPG".to_string(), "LFPO".to_string()];
+    let stats = downloader.sync(Some(&oaci_codes))?;
+
     println!("Downloaded: {}", stats.downloaded);
     println!("Up to date: {}", stats.up_to_date);
-    
+
     Ok(())
 }
 ```
@@ -61,6 +68,13 @@ cargo run --release -- --download-dir /path/to/downloads
 # Specify both
 cargo run --release -- -d /path/to/custom.db -o /path/to/downloads
 
+# Download specific airports by OACI code
+cargo run --release -- --oaci LFPG
+cargo run --release -- --oaci LFPG,LFPO,LFPB
+
+# Combine with custom paths
+cargo run --release -- -d custom.db -o ./pdfs --oaci LFPG
+
 # View help
 cargo run --release -- --help
 
@@ -74,6 +88,7 @@ cargo run --release -- --help
 |--------|-------|---------|-------------|
 | `--db-path` | `-d` | `vac_cache.db` | Path to the SQLite database file |
 | `--download-dir` | `-o` | `./downloads` | Directory where PDFs will be downloaded |
+| `--oaci` | `-c` | - | OACI codes to download (can specify multiple, separated by commas) |
 | `--help` | `-h` | - | Print help information |
 | `--version` | `-V` | - | Print version information |
 

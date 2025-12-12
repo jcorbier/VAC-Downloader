@@ -170,7 +170,10 @@ impl VacDownloader {
     }
 
     /// Main sync operation: fetch, filter, cache, and download
-    pub fn sync(&self) -> Result<SyncStats> {
+    ///
+    /// # Arguments
+    /// * `oaci_filter` - Optional list of OACI codes to filter downloads. If None, all entries are processed.
+    pub fn sync(&self, oaci_filter: Option<&[String]>) -> Result<SyncStats> {
         let mut stats = SyncStats::default();
 
         // Check if database is empty
@@ -191,7 +194,27 @@ impl VacDownloader {
 
         // Fetch all OACIS data
         println!("🌐 Fetching OACIS data from API...");
-        let entries = self.fetch_oacis_data()?;
+        let mut entries = self.fetch_oacis_data()?;
+
+        // Filter by OACI codes if specified
+        if let Some(codes) = oaci_filter {
+            let original_count = entries.len();
+            let codes_upper: Vec<String> = codes.iter().map(|c| c.to_uppercase()).collect();
+            entries.retain(|entry| codes_upper.contains(&entry.oaci.to_uppercase()));
+
+            println!("\n🔍 Filtering by OACI codes: {}", codes_upper.join(", "));
+            println!(
+                "   Matched {} out of {} total entries",
+                entries.len(),
+                original_count
+            );
+
+            if entries.is_empty() {
+                println!("\n⚠️  No entries found matching the specified OACI codes");
+                return Ok(stats);
+            }
+        }
+
         stats.total_entries = entries.len();
 
         println!("\n🔍 Checking for updates...");
