@@ -26,5 +26,5 @@ pub mod models;
 
 pub use auth::AuthGenerator;
 pub use database::VacDatabase;
-pub use downloader::VacDownloader;
+pub use downloader::{DeleteResult, VacDownloader};
 pub use models::*;

@@ -307,6 +307,57 @@ impl VacDownloader {
 
         Ok(stats)
     }
+
+    /// Delete a VAC entry from the cache and remove the PDF file
+    ///
+    /// # Arguments
+    /// * `oaci` - OACI code of the entry to delete
+    pub fn delete(&self, oaci: &str) -> Result<DeleteResult> {
+        let mut result = DeleteResult {
+            oaci: oaci.to_string(),
+            database_deleted: false,
+            file_deleted: false,
+            file_name: None,
+        };
+
+        // Delete from database
+        match self.database.delete_entry(oaci) {
+            Ok(Some(file_name)) => {
+                result.database_deleted = true;
+                result.file_name = Some(file_name.clone());
+
+                // Delete the PDF file
+                let file_path = self.download_dir.join(&file_name);
+                if file_path.exists() {
+                    match fs::remove_file(&file_path) {
+                        Ok(_) => {
+                            result.file_deleted = true;
+                            println!("✓ Deleted {} from database and filesystem", oaci);
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "✗ Deleted {} from database but failed to delete file: {}",
+                                oaci, e
+                            );
+                        }
+                    }
+                } else {
+                    println!(
+                        "✓ Deleted {} from database (file was already missing)",
+                        oaci
+                    );
+                }
+            }
+            Ok(None) => {
+                println!("⚠️  Entry {} (AD) not found in database", oaci);
+            }
+            Err(e) => {
+                anyhow::bail!("Failed to delete entry from database: {}", e);
+            }
+        }
+
+        Ok(result)
+    }
 }
 
 /// Statistics from a sync operation
@@ -319,4 +370,13 @@ pub struct SyncStats {
     pub up_to_date: usize,
     pub verified: usize,
     pub redownloaded_corrupted: usize,
+}
+
+/// Result from a delete operation
+#[derive(Debug)]
+pub struct DeleteResult {
+    pub oaci: String,
+    pub database_deleted: bool,
+    pub file_deleted: bool,
+    pub file_name: Option<String>,
 }

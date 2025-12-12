@@ -143,6 +143,28 @@ impl VacDatabase {
         }
     }
 
+    /// Delete an entry from the cache
+    /// Returns the file name if the entry existed, None otherwise
+    pub fn delete_entry(&self, oaci: &str) -> Result<Option<String>> {
+        // First, get the file name before deleting
+        let file_name = self.conn.query_row(
+            "SELECT file_name FROM vac_cache WHERE oaci = ?1",
+            params![oaci],
+            |row| row.get(0),
+        );
+
+        match file_name {
+            Ok(name) => {
+                // Entry exists, delete it
+                self.conn
+                    .execute("DELETE FROM vac_cache WHERE oaci = ?1", params![oaci])?;
+                Ok(Some(name))
+            }
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     /// Get statistics about the cache
     pub fn get_stats(&self) -> Result<(i64, String, String)> {
         let count: i64 = self
@@ -197,5 +219,33 @@ mod tests {
         assert_eq!(version, Some("1.0".to_string()));
 
         assert!(!db.is_empty().unwrap());
+    }
+
+    #[test]
+    fn test_delete_entry() {
+        let db = VacDatabase::new(":memory:").unwrap();
+
+        let entry = VacEntry {
+            oaci: "LFPG".to_string(),
+            city: "Paris".to_string(),
+            vac_type: "AD".to_string(),
+            version: "1.0".to_string(),
+            file_name: "LFPG_AD.pdf".to_string(),
+            file_size: 1024,
+            file_hash: Some("abc123".to_string()),
+        };
+
+        // Insert entry
+        db.upsert_entry(&entry).unwrap();
+        assert!(!db.is_empty().unwrap());
+
+        // Delete entry
+        let result = db.delete_entry("LFPG").unwrap();
+        assert_eq!(result, Some("LFPG_AD.pdf".to_string()));
+        assert!(db.is_empty().unwrap());
+
+        // Try to delete non-existent entry
+        let result = db.delete_entry("LFPO").unwrap();
+        assert_eq!(result, None);
     }
 }
