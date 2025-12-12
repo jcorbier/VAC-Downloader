@@ -1,0 +1,17 @@
+# VAC Downloader Configuration File
+#
+# This file allows you to set default values for the database path and download directory.
+# Command-line arguments will override these settings.
+#
+# Platform-specific locations:
+# - Linux: ~/.config/vac-downloader/config.toml
+# - macOS: ~/Library/Application Support/vac-downloader/config.toml
+# - Windows: %APPDATA%\vac-downloader\config.toml
+
+# Path to the SQLite database file
+# Default: "vac_cache.db"
+db_path = "vac_cache.db"
+
+# Directory where PDFs will be downloaded
+# Default: "./downloads"
+download_dir = "./downloads"

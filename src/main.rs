@@ -23,17 +23,20 @@ use anyhow::Result;
 use clap::Parser;
 use vac_downloader::VacDownloader;
 
+mod config;
+use config::Config;
+
 /// VAC Downloader - Airport (AD) PDF Sync Tool
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Path to the SQLite database file
-    #[arg(short, long, default_value = "vac_cache.db")]
-    db_path: String,
+    #[arg(short, long)]
+    db_path: Option<String>,
 
     /// Directory where PDFs will be downloaded
-    #[arg(short = 'o', long, default_value = "./downloads")]
-    download_dir: String,
+    #[arg(short = 'o', long)]
+    download_dir: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -41,8 +44,33 @@ fn main() -> Result<()> {
 
     println!("🛩️  VAC Downloader - Airport (AD) PDF Sync Tool\n");
 
+    // Load configuration from file (if exists)
+    let config = Config::load();
+
+    // Merge config with CLI args (CLI takes precedence)
+    // Priority: CLI args > config file > defaults
+    let db_path = args
+        .db_path
+        .or_else(|| config.as_ref().and_then(|c| c.db_path.clone()))
+        .unwrap_or_else(|| "vac_cache.db".to_string());
+
+    let download_dir = args
+        .download_dir
+        .or_else(|| config.as_ref().and_then(|c| c.download_dir.clone()))
+        .unwrap_or_else(|| "./downloads".to_string());
+
+    // Show configuration source
+    if config.is_some() {
+        println!(
+            "📝 Loaded configuration from: {}",
+            Config::get_config_path_display()
+        );
+    }
+    println!("📂 Database: {}", db_path);
+    println!("📥 Download directory: {}\n", download_dir);
+
     // Create downloader
-    let downloader = VacDownloader::new(&args.db_path, &args.download_dir)?;
+    let downloader = VacDownloader::new(&db_path, &download_dir)?;
 
     // Run sync
     let stats = downloader.sync()?;

@@ -105,6 +105,28 @@ cargo run --release -- --help
 | `--help` | `-h` | - | Print help information |
 | `--version` | `-V` | - | Print version information |
 
+#### Configuration File
+
+You can create a configuration file to set default values for the database path and download directory. Command-line arguments will override these settings.
+
+The configuration file is located at:
+
+- **Linux**: `~/.config/vac-downloader/config.toml`
+- **macOS**: `~/Library/Application Support/vac-downloader/config.toml`
+- **Windows**: `%APPDATA%\vac-downloader\config.toml`
+
+It has the following format:
+
+```toml
+# Path to the SQLite database file
+db_path = "/var/lib/vac/cache.db"
+
+# Directory where PDFs will be downloaded
+download_dir = "/var/lib/vac/pdfs"
+```
+
+See [config.toml.example](config.toml.example) for a complete example with documentation.
+
 ## Example Output
 
 ```
@@ -144,6 +166,8 @@ Total AD entries fetched: 312
 - `anyhow` - Error handling
 - `tokio` - Async runtime (for reqwest)
 - `clap` - Command-line argument parsing
+- `toml` - TOML configuration file parsing
+- `dirs` - Cross-platform config directory detection
 
 ## API Endpoints
 
