@@ -1,18 +1,16 @@
 # VAC Downloader - Rust Module
 
-A Rust module that fetches VAC (Visual Approach Charts) data from the SOFIA API, filters for airport (AD) entries, caches versions in SQLite, and downloads PDFs only when newer versions are available.
+A Rust module that fetches French VAC (Visual Approach Charts) data from the SOFIA API, filters for airport (AD) entries, caches versions in SQLite, and downloads PDFs only when newer versions are available.
 
 ## Features
 
-- ✅ **API Integration**: Fetches OACIS data with Hydra pagination
+- ✅ **API Integration**: Fetches VAC data from SOFIA API
 - ✅ **AD Filtering**: Only processes airport (AD) type entries
 - ✅ **Version Caching**: SQLite database tracks downloaded versions
 - ✅ **Smart Updates**: Downloads only when newer versions available
-- ✅ **Dual Authentication**: Custom AUTH header + Basic Auth for PDFs
-- ✅ **First Run Detection**: Downloads all PDFs if database is empty
 - ✅ **Progress Reporting**: Detailed sync statistics
 
-## Architecture
+## Code Structure
 
 ```
 src/
@@ -25,35 +23,6 @@ src/
     ├── auth.rs       # Authentication (SHA-512 + Basic Auth)
     ├── database.rs   # SQLite caching and version management
     └── downloader.rs # Main sync logic with API client
-```
-
-## Authentication
-
-### Custom AUTH Header
-```rust
-// Generates: {"tokenUri": "<sha512_hash>"}
-let auth = AuthGenerator::generate_auth_header("/api/v1/oacis", None);
-```
-
-### Basic Authentication (PDF Downloads)
-```rust
-// Generates: "Basic YXBpOkw0YjZQIWQ5K1l1aUc4LU0="
-let basic = AuthGenerator::generate_basic_auth();
-```
-
-## Database Schema
-
-```sql
-CREATE TABLE vac_cache (
-    oaci TEXT NOT NULL,
-    vac_type TEXT NOT NULL,
-    version TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    file_size INTEGER NOT NULL,
-    city TEXT NOT NULL,
-    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (oaci, vac_type)
-);
 ```
 
 ## Usage
@@ -172,14 +141,45 @@ Total AD entries fetched: 312
 - `toml` - TOML configuration file parsing
 - `dirs` - Cross-platform config directory detection
 
-## API Endpoints
+## Architecture
+
+### SOFIA API Endpoints
 
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /api/v1/oacis` | Fetch VAC metadata (paginated) |
 | `GET /api/v1/custom/file-path/{oaci}/{type}` | Download PDF file |
 
-## Error Handling
+#### Authentication
+
+##### Custom AUTH Header
+```rust
+// Generates: {"tokenUri": "<sha512_hash>"}
+let auth = AuthGenerator::generate_auth_header("/api/v1/oacis", None);
+```
+
+##### Basic Authentication (PDF Downloads)
+```rust
+// Generates: "Basic YXBpOkw0YjZQIWQ5K1l1aUc4LU0="
+let basic = AuthGenerator::generate_basic_auth();
+```
+
+### Cache Database Schema
+
+```sql
+CREATE TABLE vac_cache (
+    oaci TEXT NOT NULL,
+    vac_type TEXT NOT NULL,
+    version TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    city TEXT NOT NULL,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (oaci, vac_type)
+);
+```
+
+### Error Handling
 
 The module uses `anyhow::Result` for comprehensive error handling:
 
