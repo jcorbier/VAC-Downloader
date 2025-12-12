@@ -22,7 +22,9 @@
 use crate::{AuthGenerator, OacisResponse, VacDatabase, VacEntry};
 use anyhow::{Context, Result};
 use reqwest::blocking::Client;
+use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 const API_BASE_URL: &str = "https://bo-prod-sofia-vac.sia-france.fr";
@@ -58,6 +60,26 @@ impl VacDownloader {
             database,
             download_dir,
         })
+    }
+
+    /// Calculate SHA-256 hash of a file
+    fn calculate_file_hash(path: &Path) -> Result<String> {
+        let mut file =
+            fs::File::open(path).context(format!("Failed to open file for hashing: {:?}", path))?;
+        let mut hasher = Sha256::new();
+        let mut buffer = [0u8; 8192];
+
+        loop {
+            let bytes_read = file
+                .read(&mut buffer)
+                .context("Failed to read file for hashing")?;
+            if bytes_read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..bytes_read]);
+        }
+
+        Ok(format!("{:x}", hasher.finalize()))
     }
 
     /// Fetch all OACIS entries from the API (with pagination)
@@ -108,8 +130,8 @@ impl VacDownloader {
         Ok(all_entries)
     }
 
-    /// Download a PDF file for a VAC entry
-    fn download_pdf(&self, entry: &VacEntry) -> Result<PathBuf> {
+    /// Download a PDF file for a VAC entry and return the file hash
+    fn download_pdf(&self, entry: &VacEntry) -> Result<(PathBuf, String)> {
         let api_path = format!("{}/{}/{}", FILE_ENDPOINT, entry.oaci, entry.vac_type);
         let url = format!("{}{}", API_BASE_URL, api_path);
 
@@ -133,13 +155,18 @@ impl VacDownloader {
 
         let bytes = response.bytes().context("Failed to read PDF bytes")?;
 
+        // Calculate hash of downloaded bytes
+        let mut hasher = Sha256::new();
+        hasher.update(&bytes);
+        let hash = format!("{:x}", hasher.finalize());
+
         // Save to file
         let file_path = self.download_dir.join(&entry.file_name);
         fs::write(&file_path, bytes).context(format!("Failed to write PDF to {:?}", file_path))?;
 
         println!("  ✓ Saved to {:?} ({} bytes)", file_path, entry.file_size);
 
-        Ok(file_path)
+        Ok((file_path, hash))
     }
 
     /// Main sync operation: fetch, filter, cache, and download
@@ -170,8 +197,8 @@ impl VacDownloader {
         println!("\n🔍 Checking for updates...");
 
         // Process each entry
-        for entry in entries {
-            let needs_download = if is_first_run {
+        for mut entry in entries {
+            let needs_version_update = if is_first_run {
                 true
             } else {
                 self.database
@@ -179,12 +206,55 @@ impl VacDownloader {
                     .context(format!("Failed to check update status for {}", entry.oaci))?
             };
 
+            let mut needs_download = needs_version_update;
+
+            // If no version update needed, verify file integrity
+            if !needs_version_update && !is_first_run {
+                let file_path = self.download_dir.join(&entry.file_name);
+
+                if file_path.exists() {
+                    // File exists, verify hash
+                    match Self::calculate_file_hash(&file_path) {
+                        Ok(current_hash) => {
+                            if let Ok(Some(cached_hash)) =
+                                self.database.get_cached_hash(&entry.oaci, &entry.vac_type)
+                            {
+                                if current_hash != cached_hash {
+                                    println!("  ⚠️  Hash mismatch for {} - file corrupted, redownloading", entry.oaci);
+                                    needs_download = true;
+                                    stats.redownloaded_corrupted += 1;
+                                } else {
+                                    stats.verified += 1;
+                                }
+                            } else {
+                                // No hash in database, calculate and store it
+                                entry.file_hash = Some(current_hash);
+                                let _ = self.database.upsert_entry(&entry);
+                                stats.verified += 1;
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("  ✗ Failed to calculate hash for {}: {}", entry.oaci, e);
+                            stats.verified += 1; // Count as verified even if hash calc failed
+                        }
+                    }
+                } else {
+                    // File missing, redownload
+                    println!("  ⚠️  File missing for {} - redownloading", entry.oaci);
+                    needs_download = true;
+                    stats.redownloaded_corrupted += 1;
+                }
+            }
+
             if needs_download {
                 stats.to_download += 1;
 
                 // Download the PDF
                 match self.download_pdf(&entry) {
-                    Ok(_) => {
+                    Ok((_path, hash)) => {
+                        // Update entry with hash
+                        entry.file_hash = Some(hash);
+
                         // Update cache
                         self.database
                             .upsert_entry(&entry)
@@ -196,7 +266,7 @@ impl VacDownloader {
                         stats.failed += 1;
                     }
                 }
-            } else {
+            } else if !needs_version_update {
                 stats.up_to_date += 1;
             }
         }
@@ -204,7 +274,12 @@ impl VacDownloader {
         println!("\n✅ Sync complete!");
         println!("   Total entries: {}", stats.total_entries);
         println!("   Up to date: {}", stats.up_to_date);
+        println!("   Verified: {}", stats.verified);
         println!("   Downloaded: {}", stats.downloaded);
+        println!(
+            "   Redownloaded (corrupted/missing): {}",
+            stats.redownloaded_corrupted
+        );
         println!("   Failed: {}", stats.failed);
 
         Ok(stats)
@@ -219,4 +294,6 @@ pub struct SyncStats {
     pub downloaded: usize,
     pub failed: usize,
     pub up_to_date: usize,
+    pub verified: usize,
+    pub redownloaded_corrupted: usize,
 }

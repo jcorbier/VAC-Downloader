@@ -202,6 +202,7 @@ pub struct VacEntry {
     pub version: String,
     pub file_name: String,
     pub file_size: i64,
+    pub file_hash: Option<String>,
 }
 
 impl VacEntry {
@@ -219,6 +220,7 @@ impl VacEntry {
                     version: map.version.clone(),
                     file_name: map.file_name.clone(),
                     file_size: map.file_size,
+                    file_hash: None, // Hash computed after download
                 });
             }
         }

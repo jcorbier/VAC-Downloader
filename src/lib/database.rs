@@ -42,11 +42,15 @@ impl VacDatabase {
                 file_name TEXT NOT NULL,
                 file_size INTEGER NOT NULL,
                 city TEXT NOT NULL,
+                file_hash TEXT,
                 last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (oaci, vac_type)
             )",
             [],
         )?;
+
+        // Add file_hash column if it doesn't exist (for existing databases)
+        let _ = conn.execute("ALTER TABLE vac_cache ADD COLUMN file_hash TEXT", []);
 
         Ok(VacDatabase { conn })
     }
@@ -78,8 +82,8 @@ impl VacDatabase {
     pub fn upsert_entry(&self, entry: &VacEntry) -> Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO vac_cache 
-             (oaci, vac_type, version, file_name, file_size, city, last_updated)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, CURRENT_TIMESTAMP)",
+             (oaci, vac_type, version, file_name, file_size, city, file_hash, last_updated)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, CURRENT_TIMESTAMP)",
             params![
                 &entry.oaci,
                 &entry.vac_type,
@@ -87,15 +91,31 @@ impl VacDatabase {
                 &entry.file_name,
                 &entry.file_size,
                 &entry.city,
+                &entry.file_hash,
             ],
         )?;
         Ok(())
     }
 
+    /// Get cached hash for a specific OACI code and type
+    pub fn get_cached_hash(&self, oaci: &str, vac_type: &str) -> Result<Option<String>> {
+        let result = self.conn.query_row(
+            "SELECT file_hash FROM vac_cache WHERE oaci = ?1 AND vac_type = ?2",
+            params![oaci, vac_type],
+            |row| row.get(0),
+        );
+
+        match result {
+            Ok(hash) => Ok(hash),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     /// Get all cached entries
     pub fn get_all_entries(&self) -> Result<Vec<VacEntry>> {
         let mut stmt = self.conn.prepare(
-            "SELECT oaci, vac_type, version, file_name, file_size, city 
+            "SELECT oaci, vac_type, version, file_name, file_size, city, file_hash 
              FROM vac_cache 
              ORDER BY oaci",
         )?;
@@ -108,6 +128,7 @@ impl VacDatabase {
                 file_name: row.get(3)?,
                 file_size: row.get(4)?,
                 city: row.get(5)?,
+                file_hash: row.get(6)?,
             })
         })?;
 
@@ -167,6 +188,7 @@ mod tests {
             version: "1.0".to_string(),
             file_name: "LFPG_AD.pdf".to_string(),
             file_size: 1024,
+            file_hash: Some("abc123".to_string()),
         };
 
         db.upsert_entry(&entry).unwrap();
