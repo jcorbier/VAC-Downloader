@@ -16,12 +16,15 @@ A Rust module that fetches VAC (Visual Approach Charts) data from the SOFIA API,
 
 ```
 src/
-├── lib.rs          # Module exports
-├── main.rs         # CLI executable
-├── models.rs       # Data structures (OACIS response, VAC entries)
-├── auth.rs         # Authentication (SHA-512 + Basic Auth)
-├── database.rs     # SQLite caching and version management
-└── downloader.rs   # Main sync logic with API client
+├── cli/
+│   ├── main.rs       # CLI executable entry point
+│   └── config.rs     # Configuration file handling
+└── lib/
+    ├── lib.rs        # Library module exports
+    ├── models.rs     # Data structures (OACIS response, VAC entries)
+    ├── auth.rs       # Authentication (SHA-512 + Basic Auth)
+    ├── database.rs   # SQLite caching and version management
+    └── downloader.rs # Main sync logic with API client
 ```
 
 ## Authentication
