@@ -129,6 +129,7 @@ impl VacDatabase {
                 file_size: row.get(4)?,
                 city: row.get(5)?,
                 file_hash: row.get(6)?,
+                available_locally: true, // Retrieved from local database
             })
         })?;
 
@@ -140,6 +141,21 @@ impl VacDatabase {
         match self.get_cached_version(&entry.oaci, &entry.vac_type)? {
             Some(cached_version) => Ok(cached_version != entry.version),
             None => Ok(true), // Not in cache, needs download
+        }
+    }
+
+    /// Check if a VAC entry exists in the local cache
+    pub fn has_entry(&self, oaci: &str) -> Result<bool> {
+        let result = self.conn.query_row(
+            "SELECT 1 FROM vac_cache WHERE oaci = ?1",
+            params![oaci],
+            |_| Ok(()),
+        );
+
+        match result {
+            Ok(_) => Ok(true),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(false),
+            Err(e) => Err(e),
         }
     }
 
@@ -211,6 +227,7 @@ mod tests {
             file_name: "LFPG_AD.pdf".to_string(),
             file_size: 1024,
             file_hash: Some("abc123".to_string()),
+            available_locally: false,
         };
 
         db.upsert_entry(&entry).unwrap();
@@ -233,6 +250,7 @@ mod tests {
             file_name: "LFPG_AD.pdf".to_string(),
             file_size: 1024,
             file_hash: Some("abc123".to_string()),
+            available_locally: false,
         };
 
         // Insert entry

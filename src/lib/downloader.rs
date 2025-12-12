@@ -308,6 +308,53 @@ impl VacDownloader {
         Ok(stats)
     }
 
+    /// Get a list of all remotely available VACs with local availability status
+    ///
+    /// # Arguments
+    /// * `oaci_filter` - Optional list of OACI codes to filter results. If None, all entries are returned.
+    ///
+    /// # Returns
+    /// A vector of VacEntry containing remote VAC information and local availability
+    pub fn list_vacs(&self, oaci_filter: Option<&[String]>) -> Result<Vec<VacEntry>> {
+        println!("🌐 Fetching OACIS data from API...");
+        let mut entries = self.fetch_oacis_data()?;
+
+        // Filter by OACI codes if specified
+        if let Some(codes) = oaci_filter {
+            let original_count = entries.len();
+            let codes_upper: Vec<String> = codes.iter().map(|c| c.to_uppercase()).collect();
+            entries.retain(|entry| codes_upper.contains(&entry.oaci.to_uppercase()));
+
+            println!("\n🔍 Filtering by OACI codes: {}", codes_upper.join(", "));
+            println!(
+                "   Matched {} out of {} total entries",
+                entries.len(),
+                original_count
+            );
+
+            if entries.is_empty() {
+                println!("\n⚠️  No entries found matching the specified OACI codes");
+                return Ok(entries);
+            }
+        }
+
+        println!("\n🔍 Checking local availability...");
+
+        // Check local availability for each entry
+        for entry in &mut entries {
+            entry.available_locally = self.database.has_entry(&entry.oaci).unwrap_or(false);
+        }
+
+        let local_count = entries.iter().filter(|e| e.available_locally).count();
+        println!(
+            "   {} out of {} entries are available locally",
+            local_count,
+            entries.len()
+        );
+
+        Ok(entries)
+    }
+
     /// Delete a VAC entry from the cache and remove the PDF file
     ///
     /// # Arguments
