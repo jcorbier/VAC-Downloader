@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2025-12-15
+## [0.5.0] - 2025-12-15
 
 ### Added
 - `needs_update()` API method to check if a specific OACI code needs an update without downloading
 - `get_pdf_path()` API method to retrieve the local file path of a downloaded VAC PDF for a given OACI code
+
+## [0.4.0] - 2025-12-15
+
+Unpublished version
 
 ## [0.3.0] - 2025-12-12
 
@@ -36,7 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release of VAC Downloader
 
-[Unreleased]: https://github.com/jcorbier/VAC-Downloader/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jcorbier/VAC-Downloader/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/jcorbier/VAC-Downloader/releases/tag/v0.5.0
 [0.4.0]: https://github.com/jcorbier/VAC-Downloader/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jcorbier/VAC-Downloader/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jcorbier/VAC-Downloader/releases/tag/v0.2.0
