@@ -181,6 +181,22 @@ impl VacDatabase {
         }
     }
 
+    /// Get the file name for a given OACI code
+    /// Returns the file name if the entry exists, None otherwise
+    pub fn get_file_name(&self, oaci: &str) -> Result<Option<String>> {
+        let result = self.conn.query_row(
+            "SELECT file_name FROM vac_cache WHERE oaci = ?1",
+            params![oaci],
+            |row| row.get(0),
+        );
+
+        match result {
+            Ok(name) => Ok(Some(name)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     /// Get statistics about the cache
     pub fn get_stats(&self) -> Result<(i64, String, String)> {
         let count: i64 = self

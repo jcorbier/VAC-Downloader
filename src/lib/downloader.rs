@@ -471,6 +471,32 @@ impl VacDownloader {
 
         Ok(result)
     }
+
+    /// Get the PDF file path for a given OACI code
+    ///
+    /// # Arguments
+    /// * `oaci` - OACI code of the entry
+    ///
+    /// # Returns
+    /// The full path to the PDF file if it exists locally, or an error if not found
+    pub fn get_pdf_path(&self, oaci: &str) -> Result<PathBuf> {
+        // Check if the entry exists in the database
+        let file_name = self
+            .database
+            .get_file_name(oaci)
+            .context(format!("Failed to query database for {}", oaci))?
+            .ok_or_else(|| anyhow::anyhow!("OACI code {} not found in database", oaci))?;
+
+        // Construct the full path
+        let file_path = self.download_dir.join(&file_name);
+
+        // Verify the file exists
+        if !file_path.exists() {
+            anyhow::bail!("PDF file for {} not found at {:?}", oaci, file_path);
+        }
+
+        Ok(file_path)
+    }
 }
 
 /// Statistics from a sync operation
