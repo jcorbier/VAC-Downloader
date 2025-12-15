@@ -397,6 +397,30 @@ impl VacDownloader {
         Ok(entries)
     }
 
+    /// Check if a VAC entry needs an update
+    ///
+    /// # Arguments
+    /// * `oaci` - OACI code of the entry to check
+    ///
+    /// # Returns
+    /// `Ok(true)` if the entry needs an update, `Ok(false)` if it's up to date,
+    /// or an error if the check fails
+    pub fn needs_update(&self, oaci: &str) -> Result<bool> {
+        // Fetch remote entries to get the latest version
+        let entries = self.fetch_oacis_data()?;
+
+        // Find the entry for this OACI code
+        let remote_entry = entries
+            .iter()
+            .find(|e| e.oaci.eq_ignore_ascii_case(oaci))
+            .ok_or_else(|| anyhow::anyhow!("OACI code {} not found in remote data", oaci))?;
+
+        // Check if it needs an update using the database method
+        self.database
+            .needs_update(remote_entry)
+            .context(format!("Failed to check update status for {}", oaci))
+    }
+
     /// Delete a VAC entry from the cache and remove the PDF file
     ///
     /// # Arguments
