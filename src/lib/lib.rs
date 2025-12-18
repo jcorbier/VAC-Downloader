@@ -19,6 +19,11 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+//! VAC Downloader Library
+//!
+//! This library provides functionality to download and manage French Visual Approach Charts (VACs)
+//! from the SOFIA API. It includes authentication, database caching, and download management.
+
 pub mod auth;
 pub mod database;
 pub mod downloader;
